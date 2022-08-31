@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace EDT\PathBuilding;
 
 use EDT\Querying\Utilities\Iterables;
-use InvalidArgumentException;
 use function count;
 use function in_array;
+use function Safe\class_uses;
+use function Safe\class_parents;
 
 class TraitEvaluator
 {
@@ -16,6 +17,8 @@ class TraitEvaluator
      *
      * Only traits directly used in the given class or directly used in one of the parents
      * are returned. Traits within traits will **not** be returned.
+     *
+     * @param class-string $class
      *
      * @return array<int,string>
      */
@@ -38,7 +41,7 @@ class TraitEvaluator
      *
      * The classes/interfaces in the returned array are sorted by their "nearness" to the given class.
      *
-     * Classes take preference and are sorted deterministically, meaning when a class A extends a class B and implements an interface D then B will returned
+     * Classes take preference and are sorted deterministically, meaning when a class A extends a class B and implements an interface D, then B will be returned
      * before D. If B extends C then C will be returned between B and D.
      *
      * Interfaces are sorted after all classes with the attempt to sort interfaces closer to the given
@@ -53,14 +56,7 @@ class TraitEvaluator
     public function getAllParents(string $class): array
     {
         $parents = $this->getAllParentClasses($class);
-        $nestedInterfaces = array_map(static function (string $class): array {
-            $interfaces = class_implements($class);
-            if (false === $interfaces) {
-                throw new InvalidArgumentException("Could not determine the parent interfaces of $class");
-            }
-
-            return $interfaces;
-        }, array_reverse($parents));
+        $nestedInterfaces = array_map('Safe\class_implements', array_reverse($parents));
 
         $interfaces = [] === $nestedInterfaces ? [] : array_merge(...$nestedInterfaces);
 
@@ -74,12 +70,7 @@ class TraitEvaluator
      */
     private function getAllParentClasses(string $class): array
     {
-        $parents = class_parents($class);
-        if (false === $parents) {
-            throw new InvalidArgumentException("Could not determine the parent classes of $class");
-        }
-
-        return array_values($parents);
+        return array_values(class_parents($class));
     }
 
     /**
@@ -89,7 +80,7 @@ class TraitEvaluator
      * The given trait will be part of the result.
      *
      * @param string $trait
-     * @return string[]
+     * @return array<int, string>
      */
     public function getAllNestedTraits(string $trait): array
     {
