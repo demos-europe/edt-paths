@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace EDT\Parsing\Utilities;
 
 use Exception;
+use InvalidArgumentException;
 use phpDocumentor\Reflection\DocBlock;
 use phpDocumentor\Reflection\DocBlock\Tag;
 use phpDocumentor\Reflection\DocBlock\Tags\Param;
@@ -51,7 +52,7 @@ class DocblockTagParser
     private $phpParser;
 
     /**
-     * @var array<string, class-string>
+     * @var array<non-empty-string, non-empty-string>
      */
     private $useStatements;
 
@@ -85,7 +86,9 @@ class DocblockTagParser
     }
 
     /**
-     * @return array<int,Tag>
+     * @param non-empty-string $tagName
+     *
+     * @return list<Tag>
      */
     public function getTags(string $tagName): array
     {
@@ -98,9 +101,12 @@ class DocblockTagParser
 
     /**
      * @param PropertyRead|PropertyWrite|Property|Param|Var_ $tag
+     *
+     * @return non-empty-string
+     *
      * @throws TagNameParseException
      */
-    public function getVariableNameOfTag($tag): string
+    public function getVariableNameOfTag(TagWithType $tag): string
     {
         $variableName = $tag->getVariableName();
         if (null === $variableName || '' === $variableName) {
@@ -154,7 +160,7 @@ class DocblockTagParser
             }
         }
 
-        if (isset($fqsen) && class_exists($fqsen)) {
+        if (null !== $fqsen && class_exists($fqsen)) {
             // usable return type found in use statements
             return $fqsen;
         }
@@ -196,7 +202,7 @@ class DocblockTagParser
 
             $line = fgets($file);
             if (false === $line) {
-                throw new \InvalidArgumentException("Failed to read source code of file: '$fileName' in line $lineNumber.");
+                throw new InvalidArgumentException("Failed to read source code of file: '$fileName' in line $lineNumber.");
             }
             $sourceCode .= $line;
         }
@@ -207,7 +213,7 @@ class DocblockTagParser
     }
 
     /**
-     * @return array<string, class-string> mapping from the usable name (alias are class name) to the fully qualified class name
+     * @return array<non-empty-string, non-empty-string>
      *
      * @throws FilesystemException
      */
@@ -225,23 +231,10 @@ class DocblockTagParser
         $sourceCode = $this->readSourceCode($fileName);
         $ast = $this->phpParser->parse($sourceCode);
         $traverser = new NodeTraverser();
-        $useCollector = new class extends NodeVisitorAbstract {
-            /** @var array<string, class-string> */
-            public $useStatements = [];
-            public function leaveNode(Node $node) {
-                if ($node instanceof Node\Stmt\Use_) {
-                    foreach ($node->uses as $use) {
-                        $key = null === $use->alias ? $use->name->getLast() : $use->alias->toString();
-                        $this->useStatements[$key] = $use->name->toString();
-                    }
-                }
-
-                return null;
-            }
-        };
+        $useCollector = new UseCollector();
         $traverser->addVisitor($useCollector);
         $traverser->traverse($ast);
 
-        return $useCollector->useStatements;
+        return $useCollector->getUseStatements();
     }
 }

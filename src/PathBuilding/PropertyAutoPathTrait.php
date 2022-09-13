@@ -9,6 +9,7 @@ use EDT\Parsing\Utilities\ParseException;
 use EDT\Querying\Contracts\PropertyPathInterface;
 use EDT\Wrapping\Contracts\Types\TypeInterface;
 use Exception;
+use InvalidArgumentException;
 use ReflectionClass;
 use Traversable;
 use function array_key_exists;
@@ -47,12 +48,12 @@ trait PropertyAutoPathTrait
     /**
      * Null if no parsing happened yet.
      *
-     * @var array<string,class-string>|null
+     * @var array<non-empty-string, class-string>|null
      */
     private $properties;
 
     /**
-     * @var array<string, PropertyAutoPathTrait>
+     * @var array<non-empty-string, PropertyAutoPathTrait>
      */
     private $children = [];
 
@@ -74,7 +75,10 @@ trait PropertyAutoPathTrait
     }
 
     /**
+     * @param non-empty-string $propertyName
+     *
      * @return PropertyAutoPathTrait
+     *
      * @throws PathBuildException
      */
     public function __get(string $propertyName): object
@@ -98,7 +102,7 @@ trait PropertyAutoPathTrait
             }
         }
 
-        return  $this->children[$propertyName];
+        return $this->children[$propertyName];
     }
 
     /**
@@ -130,7 +134,7 @@ trait PropertyAutoPathTrait
     /**
      * Returns the instances that are part of this path.
      *
-     * @return array<int,object> All objects that are part of this path, including the starting object without corresponding
+     * @return non-empty-list<object> All objects that are part of this path, including the starting object without corresponding
      * property name.
      */
     public function getAsValues(): array
@@ -168,26 +172,31 @@ trait PropertyAutoPathTrait
     /**
      * Provides all property-read tags from the docblock of the class this method was invoked on and its parent classes/interfaces.
      *
+     * @param non-empty-list<non-empty-string> $targetTags
+     *
      * @return array<string,class-string>
      * @throws ParseException
      */
-    protected function getAutoPathProperties(): array
+    protected function getAutoPathProperties(array $targetTags = ['property-read']): array
     {
         if (null === $this->properties) {
-            $this->properties = $this->getDocblockTraitEvaluator()->parseProperties(static::class, true);
+            $this->properties = $this->getDocblockTraitEvaluator($targetTags)->parseProperties(
+                static::class,
+                true
+            );
         }
 
         return $this->properties;
     }
 
     /**
-     * @param array<int, PropertyPathInterface> ...$paths The first index (`0`) is the {@link PropertyPathInterface}
+     * @param array{0: PropertyPathInterface, 1: PropertyPathInterface} ...$paths The first index is the {@link PropertyPathInterface}
      *                                   of this {@link TypeInterface} instance from which we want
      *                                   to redirect to another property or attribute (it is thus
-     *                                   expected to have only one segment). The second index (`1`)
+     *                                   expected to have only one segment). The second index
      *                                   is a {@link PropertyPathInterface} to which we want to
      *                                   redirect.
-     * @return array<string,array<int,string>>
+     * @return array<non-empty-string, non-empty-list<non-empty-string>>
      * @throws PathBuildException
      *
      * @see TypeInterface::getAliases()
@@ -195,13 +204,9 @@ trait PropertyAutoPathTrait
     protected function toAliases(array ...$paths): array
     {
         $keys = array_column($paths, 0);
-        $keys = array_map(static function (PropertyPathInterface $path): string {
-            return $path->getAsNamesInDotNotation();
-        }, $keys);
+        $keys = array_map([$this, 'getSourcePath'], $keys);
         $values = array_column($paths, 1);
-        $values = array_map(static function (PropertyPathInterface $path): array {
-            return $path->getAsNames();
-        }, $values);
+        $values = array_map([$this, 'getTargetPath'], $values);
 
         return array_combine($keys, $values);
     }
@@ -214,6 +219,7 @@ trait PropertyAutoPathTrait
      *
      * @param class-string<PropertyAutoPathTrait> $className
      * @param PropertyAutoPathTrait|null $parent
+     * @param non-empty-string|null $parentPropertyName
      *
      * @return PropertyAutoPathTrait
      *
@@ -235,10 +241,6 @@ trait PropertyAutoPathTrait
                 $childPathSegment = $class->newInstanceArgs($constructorArgs);
             }
 
-            if ('' === $parentPropertyName) {
-                throw PathBuildException::childWithEmptyParentPropertyName();
-            }
-
             if (null !== $parent) {
                 $childPathSegment->setParent($parent);
             }
@@ -253,14 +255,49 @@ trait PropertyAutoPathTrait
     }
 
     /**
+     * @param non-empty-list<non-empty-string> $targetTags
      * @internal
      */
-    protected function getDocblockTraitEvaluator(): DocblockPropertyByTraitEvaluator
+    protected function getDocblockTraitEvaluator(array $targetTags): DocblockPropertyByTraitEvaluator
     {
         if (null === $this->docblockTraitEvaluator) {
-            $this->docblockTraitEvaluator = PropertyEvaluatorPool::getInstance()->getEvaluator(PropertyAutoPathTrait::class);
+            $this->docblockTraitEvaluator = PropertyEvaluatorPool::getInstance()->getEvaluator(
+                PropertyAutoPathTrait::class,
+                $targetTags
+            );
         }
 
         return $this->docblockTraitEvaluator;
+    }
+
+    /**
+     * @return non-empty-string
+     *
+     * @throws InvalidArgumentException
+     */
+    private function getSourcePath(PropertyPathInterface $sourcePath): string
+    {
+        $path = $sourcePath->getAsNamesInDotNotation();
+
+        if ('' === $path) {
+            throw new InvalidArgumentException('No source path must be empty.');
+        }
+
+        return $path;
+    }
+
+    /**
+     * @return non-empty-list<non-empty-string>
+     *
+     * @throws InvalidArgumentException
+     */
+    private function getTargetPath(PropertyPathInterface $targetPath): array
+    {
+        $path = $targetPath->getAsNames();
+        if ([] === $path) {
+            throw new InvalidArgumentException('No target path must be empty.');
+        }
+
+        return $path;
     }
 }
