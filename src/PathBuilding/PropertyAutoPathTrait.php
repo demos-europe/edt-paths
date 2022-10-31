@@ -34,11 +34,11 @@ trait PropertyAutoPathTrait
     /**
      * @var PropertyAutoPathTrait|null
      */
-    private $parent;
+    private ?object $parent = null;
     /**
-     * @var string|null
+     * @var non-empty-string|null
      */
-    private $parentPropertyName;
+    private ?string $parentPropertyName = null;
     /**
      * Will be used instead of {@link PropertyAutoPathTrait::createChild()} when set to non-null.
      * @var callable(string, PropertyAutoPathTrait, string): PropertyAutoPathTrait
@@ -50,19 +50,17 @@ trait PropertyAutoPathTrait
      *
      * @var array<non-empty-string, class-string>|null
      */
-    private $properties;
+    private ?array $properties = null;
 
     /**
      * @var array<non-empty-string, PropertyAutoPathTrait>
      */
-    private $children = [];
+    private array $children = [];
 
     /**
      * Use {@link PropertyAutoPathTrait::getDocblockTraitEvaluator()} to initialize.
-     *
-     * @var DocblockPropertyByTraitEvaluator|null
      */
-    private $docblockTraitEvaluator;
+    private ?DocblockPropertyByTraitEvaluator $docblockTraitEvaluator = null;
 
     /**
      * @param mixed ...$constructorArgs
@@ -116,6 +114,8 @@ trait PropertyAutoPathTrait
     }
 
     /**
+     * @param non-empty-string $parentPropertyName
+     *
      * @internal
      */
     public function setParentPropertyName(string $parentPropertyName): void
@@ -148,6 +148,8 @@ trait PropertyAutoPathTrait
     }
 
     /**
+     * @return list<non-empty-string>
+     *
      * @see PropertyPathInterface::getAsNames()
      */
     public function getAsNames(): array
@@ -155,6 +157,8 @@ trait PropertyAutoPathTrait
         $path = [];
         if (null !== $this->parent) {
             $path = $this->parent->getAsNames();
+        }
+        if (null !== $this->parentPropertyName) {
             $path[] = $this->parentPropertyName;
         }
 
@@ -162,9 +166,9 @@ trait PropertyAutoPathTrait
     }
 
     /**
-     * @return Traversable<int,string>
+     * @return ArrayIterator<int, non-empty-string>
      */
-    public function getIterator(): Traversable
+    public function getIterator(): ArrayIterator
     {
         return new ArrayIterator($this->getAsNames());
     }
@@ -174,7 +178,7 @@ trait PropertyAutoPathTrait
      *
      * @param non-empty-list<non-empty-string> $targetTags
      *
-     * @return array<string,class-string>
+     * @return array<string, class-string>
      * @throws ParseException
      */
     protected function getAutoPathProperties(array $targetTags = ['property-read']): array
@@ -218,8 +222,8 @@ trait PropertyAutoPathTrait
      * suited for other purposes.
      *
      * @param class-string<PropertyAutoPathTrait> $className
-     * @param PropertyAutoPathTrait|null $parent
-     * @param non-empty-string|null $parentPropertyName
+     * @param PropertyAutoPathTrait|null          $parent
+     * @param non-empty-string|null               $parentPropertyName
      *
      * @return PropertyAutoPathTrait
      *

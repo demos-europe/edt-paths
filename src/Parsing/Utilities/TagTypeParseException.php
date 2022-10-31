@@ -9,18 +9,11 @@ use phpDocumentor\Reflection\Types\AggregatedType;
 
 class TagTypeParseException extends ParseException
 {
-    /**
-     * @var string
-     */
-    private $tagName;
-    /**
-     * @var string|null
-     */
-    private $variableName;
-    /**
-     * @var string
-     */
-    private $type;
+    private string $tagName;
+
+    private ?string $variableName = null;
+
+    private string $type;
 
     /**
      * @param class-string $className
