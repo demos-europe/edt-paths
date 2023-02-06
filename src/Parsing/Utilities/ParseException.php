@@ -5,24 +5,25 @@ declare(strict_types=1);
 namespace EDT\Parsing\Utilities;
 
 use Exception;
-use phpDocumentor\Reflection\DocBlock\Tags\PropertyRead;
+use Throwable;
 
 class ParseException extends Exception
 {
     /**
-     * @var class-string
+     * @param class-string $className
+     * @param non-empty-string $message
      */
-    protected string $className;
+    protected function __construct(protected string $className, string $message, int $code = 0, Throwable $previous = null)
+    {
+        parent::__construct($message, $code, $previous);
+    }
 
     /**
      * @param class-string $class
      */
     public static function docblockParsingFailed(string $class, Exception $cause): self
     {
-        $self = new self("Failed to parse docblock of class '$class'", 0, $cause);
-        $self->className = $class;
-
-        return $self;
+        return new self($class, "Failed to parse docblock of class '$class'", 0, $cause);
     }
 
     /**

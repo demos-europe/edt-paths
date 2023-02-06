@@ -58,8 +58,8 @@ class DocblockTagParser
             $this->reflectionClass = new ReflectionClass($class);
             $this->docBlock = self::createDocblock($this->reflectionClass);
             $this->useStatements = $this->getUseStatements();
-        } catch (Exception $e) {
-            throw ParseException::docblockParsingFailed($class, $e);
+        } catch (Exception $exception) {
+            throw ParseException::docblockParsingFailed($class, $exception);
         }
     }
 
@@ -87,7 +87,7 @@ class DocblockTagParser
             return [];
         }
 
-        return $this->docBlock->getTagsByName($tagName);
+        return array_values($this->docBlock->getTagsByName($tagName));
     }
 
     /**
@@ -101,7 +101,7 @@ class DocblockTagParser
     {
         $variableName = $tag->getVariableName();
         if (null === $variableName || '' === $variableName) {
-            throw TagNameParseException::createForEmptyVariableName($tag, $this->reflectionClass->getName());
+            throw TagNameParseException::createForEmptyVariableName($tag->render(), $this->reflectionClass->getName());
         }
 
         return $variableName;
