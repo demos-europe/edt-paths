@@ -9,6 +9,7 @@ use EDT\PathBuilding\End;
 use EDT\PathBuilding\PropertyAutoPathInterface;
 use EDT\PathBuilding\PropertyAutoPathTrait;
 use EDT\PathBuilding\PropertyEvaluatorPool;
+use EDT\PathBuilding\PropertyTag;
 
 /**
  * @param End $paramAttribute
@@ -27,7 +28,10 @@ class VarTagged implements PropertyAutoPathInterface
     protected function getDocblockTraitEvaluator(): DocblockPropertyByTraitEvaluator
     {
         if (null === $this->docblockTraitEvaluator) {
-            $this->docblockTraitEvaluator = PropertyEvaluatorPool::getInstance()->getEvaluator(PropertyAutoPathTrait::class, ['var']);
+            $this->docblockTraitEvaluator = PropertyEvaluatorPool::getInstance()->getEvaluator(
+                [PropertyAutoPathTrait::class],
+                [PropertyTag::VAR]
+            );
         }
 
         return $this->docblockTraitEvaluator;
